@@ -5,7 +5,9 @@ import java.net.*;
 import java.util.*;
 import com.sun.net.httpserver.*;
 
+import edu.stanford.nlp.ling.*;
 import edu.stanford.nlp.ie.crf.CRFClassifier;
+import edu.stanford.nlp.objectbank.ObjectBank;
 
 public class StanfordChineseSegmenterServer {
     public class SystemOutKeeper {
@@ -38,18 +40,32 @@ public class StanfordChineseSegmenterServer {
 		Headers headers = exchange.getResponseHeaders();
 		headers.add("Content-Type", "text/plain");
 
-		// Slurp all the input
-		File workFile = File.createTempFile("stanford-chinese-segmenter-server-", null);
-		workFile.deleteOnExit();
+		//--------------------------------------------------
+		// // Slurp all the input
+		// File workFile = File.createTempFile("stanford-chinese-segmenter-server-", null);
+		// workFile.deleteOnExit();
+		//
+		// if (!saveRequestBodyToFile(exchange, workFile)) throw new IOException();
+		//-------------------------------------------------- 
 
-		if (!saveRequestBodyToFile(exchange, workFile)) throw new IOException();
+		// Slurp the input
+		ObjectBank<List<CoreLabel>> documents = 
+		    classifier.makeObjectBank(new BufferedReader(new InputStreamReader(exchange.getRequestBody())));
 
 		exchange.sendResponseHeaders(200, 0);
 		out = new PrintStream(exchange.getResponseBody());
 
-		// Override the stdout (so that the client get to access the result)
 		System.setOut(out);
-		classifier.testAndWriteAnswers(workFile.getAbsolutePath());
+		for (List<CoreLabel> doc: documents) {
+		    classifier.test(doc);
+		    classifier.writeAnswers(doc);
+		}
+
+		//--------------------------------------------------
+		// // Override the stdout (so that the client get to access the result)
+		// System.setOut(out);
+		// classifier.testAndWriteAnswers(workFile.getAbsolutePath());
+		//-------------------------------------------------- 
 	    }
 	    catch (Exception e) {}
 	    finally {
@@ -63,29 +79,63 @@ public class StanfordChineseSegmenterServer {
 	    }
 	}
 
-	public boolean saveRequestBodyToFile(HttpExchange exchange, File file) {
-	    boolean success = true;
-	    InputStream in = null;
-	    OutputStream out = null;
+	//--------------------------------------------------
+	// public String getRequestBody(HttpExchange exchange) {
+	//     Reader in = null;
+	//     StringWriter out = new StringWriter();
+	//-------------------------------------------------- 
 
-	    try {
-		in = exchange.getRequestBody();
-		out = new FileOutputStream(file);
-		byte[] buf = new byte[4096]; // Magic number, huh.
-		int byteRead = 0;
-		while ((byteRead = in.read(buf)) >= 0) out.write(buf, 0, byteRead);
-	    }
-	    catch (IOException e) { 
-		success = false;
-		e.printStackTrace(); 
-	    }
-	    finally {
-		try { if (in != null) in.close(); } catch (IOException e) { }
-		try { if (out != null) out.close(); } catch (IOException e) { }
-	    }
+	//--------------------------------------------------
+	//     try {
+	// 	in = new InputStreamReader(exchange.getRequestBody());
+	//-------------------------------------------------- 
 
-	    return success;
-	}
+	//--------------------------------------------------
+	// 	char[] buf = new char[4096]; // Magic number, huh.
+	// 	int charsRead = 0;
+	// 	while ((charsRead = in.read(buf)) >= 0) out.write(buf, 0, charsRead);
+	//     }
+	//     catch (IOException e) { e.printStackTrace(); }
+	//     finally {
+	// 	try { if (in != null) in.close(); } catch (IOException e) { }
+	// 	try { if (out != null) out.close(); } catch (IOException e) { }
+	//     }
+	//-------------------------------------------------- 
+
+	//--------------------------------------------------
+	//     return out.toString();
+	// }
+	//-------------------------------------------------- 
+
+	//--------------------------------------------------
+	// public boolean saveRequestBodyToFile(HttpExchange exchange, File file) {
+	//     boolean success = true;
+	//     InputStream in = null;
+	//     OutputStream out = null;
+	//-------------------------------------------------- 
+
+	//--------------------------------------------------
+	//     try {
+	// 	in = exchange.getRequestBody();
+	// 	out = new FileOutputStream(file);
+	// 	byte[] buf = new byte[4096]; // Magic number, huh.
+	// 	int byteRead = 0;
+	// 	while ((byteRead = in.read(buf)) >= 0) out.write(buf, 0, byteRead);
+	//     }
+	//     catch (IOException e) { 
+	// 	success = false;
+	// 	e.printStackTrace(); 
+	//     }
+	//     finally {
+	// 	try { if (in != null) in.close(); } catch (IOException e) { }
+	// 	try { if (out != null) out.close(); } catch (IOException e) { }
+	//     }
+	//-------------------------------------------------- 
+
+	//--------------------------------------------------
+	//     return success;
+	// }
+	//-------------------------------------------------- 
     }
 
     protected HttpServer httpServer;
