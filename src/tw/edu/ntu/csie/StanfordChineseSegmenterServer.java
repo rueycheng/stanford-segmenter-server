@@ -91,23 +91,6 @@ public class StanfordChineseSegmenterServer {
     protected HttpServer httpServer;
     protected CRFClassifier classifier;
 
-    public static CRFClassifier createDefaultCRFClassifier() {
-	Properties props = new Properties();
-	props.setProperty("sighanCorporaDict", "data");
-	props.setProperty("serDictionary","data/dict-chris6.ser.gz");
-	props.setProperty("inputEncoding", "UTF-8");
-	props.setProperty("sighanPostProcessing", "true");
-
-	CRFClassifier classifier = new CRFClassifier(props);
-	classifier.loadClassifierNoExceptions("data/ctb.gz", props);
-	classifier.flags.setProperties(props); // flags must be re-set after data is loaded
-	return classifier;
-    }
-
-    public StanfordChineseSegmenterServer(int port) throws IOException {
-	this(createDefaultCRFClassifier(), port);
-    }
-
     public StanfordChineseSegmenterServer(CRFClassifier classifier, int port) throws IOException {
 	httpServer = HttpServer.create(new InetSocketAddress(port), 0);
 	httpServer.createContext("/", new ClassifierHandler(classifier));
@@ -117,8 +100,50 @@ public class StanfordChineseSegmenterServer {
     public void stop(int delay) { httpServer.stop(delay); }
 
     public static void main(String[] args) {
+	if (args.length != 2) {
+	    PrintStream err = System.err;
+	    err.println("usage: StanfordChineseSegmenterServer DATADIR PORT");
+	    err.println();
+	    err.println("    DATADIR    Path to the stanford chinese segmenter data directory");         
+	    err.println("               i.e., 'stanford-chinese-segmenter-2008-05-21/data'");         
+	    err.println("    PORT       The server port number");
+	    return;
+	}
+
+	File dataDir = new File(args[0]);
+	if (!dataDir.exists() || !dataDir.isDirectory()) {
+	    System.err.println("Data directory does not exist");
+	    System.exit(1);
+	}
+
+	File dictFile = new File(dataDir, "dict-chris6.ser.gz");
+	File ctbFile = new File(dataDir, "ctb.gz");
+
+	if (!dictFile.exists()) {
+	    System.err.println("File " + dictFile.getName() + " does not exist");
+	    System.exit(1);
+	} 
+	else if (!ctbFile.exists()) {
+	    System.err.println("File " + ctbFile.getName() + " does not exist");
+	    System.exit(1);
+	}
+
+	int port = Integer.parseInt(args[1]);
+
+	// Now, set things up
 	try {
-	    StanfordChineseSegmenterServer server = new StanfordChineseSegmenterServer(8080);
+	    Properties props = new Properties();
+	    props.setProperty("sighanCorporaDict", dataDir.getCanonicalPath());
+	    props.setProperty("serDictionary", dictFile.getCanonicalPath());
+	    props.setProperty("inputEncoding", "UTF-8");
+	    props.setProperty("sighanPostProcessing", "true");
+
+	    CRFClassifier classifier = new CRFClassifier(props);
+	    classifier.loadClassifierNoExceptions(ctbFile.getCanonicalPath(), props);
+	    classifier.flags.setProperties(props); // flags must be re-set after data is loaded
+
+	    StanfordChineseSegmenterServer server = 
+		new StanfordChineseSegmenterServer(classifier, port);
 	    server.start();
 	}
 	catch (IOException e) { e.printStackTrace(); }
