@@ -1,3 +1,9 @@
+//--------------------------------------------------
+// StanfordChineseSegmenterServer
+// 
+// -- Ruey-Cheng Chen <cobain@turing.csie.ntu.edu.tw>
+//-------------------------------------------------- 
+
 package tw.edu.ntu.csie;
 
 import java.io.*;
@@ -40,32 +46,21 @@ public class StanfordChineseSegmenterServer {
 		Headers headers = exchange.getResponseHeaders();
 		headers.add("Content-Type", "text/plain");
 
-		//--------------------------------------------------
-		// // Slurp all the input
-		// File workFile = File.createTempFile("stanford-chinese-segmenter-server-", null);
-		// workFile.deleteOnExit();
-		//
-		// if (!saveRequestBodyToFile(exchange, workFile)) throw new IOException();
-		//-------------------------------------------------- 
-
-		// Slurp the input
-		ObjectBank<List<CoreLabel>> documents = 
-		    classifier.makeObjectBank(new BufferedReader(new InputStreamReader(exchange.getRequestBody())));
+		// Slurp all the input
+		File workFile = File.createTempFile("stanford-chinese-segmenter-server-", null);
+		if (!saveRequestBodyToFile(exchange, workFile)) throw new IOException();
 
 		exchange.sendResponseHeaders(200, 0);
 		out = new PrintStream(exchange.getResponseBody());
 
+		// Override the stdout (so that the client get to access the result)
 		System.setOut(out);
-		for (List<CoreLabel> doc: documents) {
-		    classifier.test(doc);
-		    classifier.writeAnswers(doc);
-		}
+		classifier.testAndWriteAnswers(workFile.getAbsolutePath());
 
-		//--------------------------------------------------
-		// // Override the stdout (so that the client get to access the result)
-		// System.setOut(out);
-		// classifier.testAndWriteAnswers(workFile.getAbsolutePath());
-		//-------------------------------------------------- 
+		// I'm not sure this is the right thing to do
+		// (Can we have a TempFileManager that keep only the last 100 files in the filesystem?)
+		workFile.deleteOnExit(); 
+		workFile.delete();
 	    }
 	    catch (Exception e) {}
 	    finally {
@@ -79,63 +74,29 @@ public class StanfordChineseSegmenterServer {
 	    }
 	}
 
-	//--------------------------------------------------
-	// public String getRequestBody(HttpExchange exchange) {
-	//     Reader in = null;
-	//     StringWriter out = new StringWriter();
-	//-------------------------------------------------- 
+	public boolean saveRequestBodyToFile(HttpExchange exchange, File file) {
+	    boolean success = true;
+	    InputStream in = null;
+	    OutputStream out = null;
 
-	//--------------------------------------------------
-	//     try {
-	// 	in = new InputStreamReader(exchange.getRequestBody());
-	//-------------------------------------------------- 
+	    try {
+		in = exchange.getRequestBody();
+		out = new FileOutputStream(file);
+		byte[] buf = new byte[4096]; // Magic number, huh.
+		int byteRead = 0;
+		while ((byteRead = in.read(buf)) >= 0) out.write(buf, 0, byteRead);
+	    }
+	    catch (IOException e) { 
+		success = false;
+		e.printStackTrace(); 
+	    }
+	    finally {
+		try { if (in != null) in.close(); } catch (IOException e) { }
+		try { if (out != null) out.close(); } catch (IOException e) { }
+	    }
 
-	//--------------------------------------------------
-	// 	char[] buf = new char[4096]; // Magic number, huh.
-	// 	int charsRead = 0;
-	// 	while ((charsRead = in.read(buf)) >= 0) out.write(buf, 0, charsRead);
-	//     }
-	//     catch (IOException e) { e.printStackTrace(); }
-	//     finally {
-	// 	try { if (in != null) in.close(); } catch (IOException e) { }
-	// 	try { if (out != null) out.close(); } catch (IOException e) { }
-	//     }
-	//-------------------------------------------------- 
-
-	//--------------------------------------------------
-	//     return out.toString();
-	// }
-	//-------------------------------------------------- 
-
-	//--------------------------------------------------
-	// public boolean saveRequestBodyToFile(HttpExchange exchange, File file) {
-	//     boolean success = true;
-	//     InputStream in = null;
-	//     OutputStream out = null;
-	//-------------------------------------------------- 
-
-	//--------------------------------------------------
-	//     try {
-	// 	in = exchange.getRequestBody();
-	// 	out = new FileOutputStream(file);
-	// 	byte[] buf = new byte[4096]; // Magic number, huh.
-	// 	int byteRead = 0;
-	// 	while ((byteRead = in.read(buf)) >= 0) out.write(buf, 0, byteRead);
-	//     }
-	//     catch (IOException e) { 
-	// 	success = false;
-	// 	e.printStackTrace(); 
-	//     }
-	//     finally {
-	// 	try { if (in != null) in.close(); } catch (IOException e) { }
-	// 	try { if (out != null) out.close(); } catch (IOException e) { }
-	//     }
-	//-------------------------------------------------- 
-
-	//--------------------------------------------------
-	//     return success;
-	// }
-	//-------------------------------------------------- 
+	    return success;
+	}
     }
 
     protected HttpServer httpServer;

@@ -1,0 +1,10 @@
+#!/bin/bash
+
+basedir="`/bin/readlink -f $(dirname $0)/..`"
+client_jar="$basedir/lib/seg.jar"
+server_jar="`ls -1 $basedir/stanford-chinese-segmenter-server-*.jar 2>/dev/null | tail -1`"
+
+[ -f "$client_jar" ] || { echo "Missing $client_jar" >&2; exit 1; }
+[ -f "$server_jar" ] || { echo "Missing $server_jar" >&2; exit 1; }
+
+/usr/bin/java -cp "$client_jar:$server_jar" tw.edu.ntu.csie.StanfordChineseSegmenterServer "$@"
