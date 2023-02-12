@@ -4,5 +4,5 @@ port=${1:-8080}
 
 while read line 
 do
-    /usr/bin/curl "http://localhost:$port/" -d"$line"
+    /usr/bin/curl --silent "http://localhost:$port/" -d"$line"
 done

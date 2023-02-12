@@ -55,7 +55,12 @@ public class StanfordChineseSegmenterServer {
 
 		// Override the stdout (so that the client get to access the result)
 		System.setOut(out);
-		classifier.testAndWriteAnswers(workFile.getAbsolutePath());
+
+		// FIXME: This is a quick fix in response to the API change made in
+		//        the Stanford segmentor code base
+		//
+		// classifier.testAndWriteAnswers(workFile.getAbsolutePath());
+		classifier.classifyAndWriteAnswers(workFile.getAbsolutePath());
 
 		// I'm not sure this is the right thing to do
 		// (Can we have a TempFileManager that keep only the last 100 files in the filesystem?)
